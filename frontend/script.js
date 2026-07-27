@@ -3,10 +3,10 @@
 // call to POST /analyze (backend still returns hardcoded placeholder
 // JSON today — Day 6 wires up the real Gemini-powered response).
 
-const BACKEND_URL = "http://localhost:5000";
+const BACKEND_URL = "https://resumematch-ai-tai8.onrender.com";
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const ALLOWED_EXTENSIONS = ["pdf", "docx"];
-const MIN_RESUME_TEXT_LENGTH = 50;
+const MIN_RESUME_TEXT_LENGTH = 50;-
 const MIN_JD_LENGTH = 50;
 
 // ---- State ----
