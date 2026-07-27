@@ -1,7 +1,3 @@
-/* ===================================================================
-   ResumeMatch AI — Home/Upload screen
-   Tokens
-   =================================================================== */
 :root {
   --ink: #12172B;
   --ink-soft: #232A46;
@@ -495,6 +491,36 @@ body {
   max-width: 480px;
 }
 
+.loading-state {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--slate);
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  display: inline-block;
+  animation: spinner-turn 0.8s linear infinite;
+}
+
+@keyframes spinner-turn {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}
+
 /* ===================================================================
    Footer
    =================================================================== */
@@ -509,6 +535,12 @@ body {
 
 .site-footer p {
   margin: 0;
+}
+
+.challenge-credit {
+  margin-top: 4px !important;
+  color: #6B7190;
+  font-size: 11px;
 }
 
 /* ===================================================================

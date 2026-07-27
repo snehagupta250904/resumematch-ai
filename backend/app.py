@@ -1,41 +1,27 @@
+import os
+import time
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
-from utils.resume_parser import parse_resume
-from utils.ai_client import analyze_resume  # noqa: F401  (not called yet — wired for real on Day 6)
-import tempfile
-import os
+
+from utils.resume_parser import extract_resume_text, ResumeExtractionError, get_extension
+from utils.ai_client import analyze_resume, AIAnalysisError
 
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+ALLOWED_EXTENSIONS = {".pdf", ".docx"}
+MIN_JD_LENGTH = 50
+MIN_RESUME_TEXT_LENGTH = 40
 
-MIN_JOB_DESCRIPTION_LENGTH = 50
-ALLOWED_EXTENSIONS = (".pdf", ".docx")
-
-# Day 2 API contract — hardcoded placeholder response for Day 5.
-# Day 6 replaces the "result = PLACEHOLDER_ANALYSIS" line below with a
-# real call to analyze_resume(resume_text, job_description).
-PLACEHOLDER_ANALYSIS = {
-    "overall_score": 78,
-    "sub_scores": {
-        "skills": 72,
-        "keywords": 65,
-        "experience": 85,
-        "education": 90
-    },
-    "missing_keywords": ["Docker", "CI/CD", "REST APIs"],
-    "missing_skills": ["Kubernetes", "Unit Testing"],
-    "strengths": ["Strong Python experience", "Relevant academic projects"],
-    "weaknesses": ["No cloud deployment experience mentioned", "Missing quantifiable achievements"],
-    "suggestions": [
-        "Add 'Docker' and 'CI/CD' explicitly if you have exposure to them",
-        "Quantify project impact with numbers (e.g., 'reduced load time by 30%')"
-    ]
-}
+COOLDOWN_SECONDS = 3
+# Simple in-memory cooldown guard -- not a security feature, just a basic
+# safeguard against burning through the free-tier Gemini quota with rapid
+# repeat clicks during testing/demoing.
+_last_request_time = {"ts": 0.0}
 
 
 @app.route("/health", methods=["GET"])
@@ -45,71 +31,75 @@ def health():
 
 @app.route("/analyze", methods=["POST"])
 def analyze():
-    job_description = request.form.get("job_description", "").strip()
-
-    if not job_description or len(job_description) < MIN_JOB_DESCRIPTION_LENGTH:
+    now = time.time()
+    if now - _last_request_time["ts"] < COOLDOWN_SECONDS:
         return jsonify({
-            "error": "invalid_job_description",
-            "message": f"Job description must be at least {MIN_JOB_DESCRIPTION_LENGTH} characters."
-        }), 400
+            "error": "cooldown",
+            "message": "Please wait a few seconds before analyzing again."
+        }), 429
 
+    job_description = request.form.get("job_description", "").strip()
     resume_text = request.form.get("resume_text", "").strip()
     resume_file = request.files.get("resume_file")
 
-    if not resume_file and not resume_text:
+    if not job_description or len(job_description) < MIN_JD_LENGTH:
         return jsonify({
-            "error": "missing_resume",
-            "message": "Please upload a resume file or paste your resume text."
+            "error": "missing_fields",
+            "message": f"Job description must be at least {MIN_JD_LENGTH} characters."
         }), 400
 
-    # A file takes priority over pasted text if both are somehow present,
-    # matching the frontend's mode toggle (only one is ever sent at a time).
-    if resume_file:
-        filename = resume_file.filename or ""
-        ext = os.path.splitext(filename)[1].lower()
+    if not resume_file and not resume_text:
+        return jsonify({
+            "error": "missing_fields",
+            "message": "Provide either a resume file or pasted resume text."
+        }), 400
 
+    final_resume_text = resume_text
+
+    if resume_file:
+        ext = get_extension(resume_file.filename)
         if ext not in ALLOWED_EXTENSIONS:
             return jsonify({
                 "error": "unsupported_file_type",
-                "message": "Please upload a PDF or DOCX file."
-            }), 400
+                "message": "Only PDF or DOCX files are supported."
+            }), 415
 
-        tmp_path = None
-        try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
-                resume_file.save(tmp.name)
-                tmp_path = tmp.name
-
-            resume_text = parse_resume(tmp_path)
-
-        except ValueError:
+        resume_file.stream.seek(0, os.SEEK_END)
+        size = resume_file.stream.tell()
+        resume_file.stream.seek(0)
+        if size > MAX_FILE_SIZE:
             return jsonify({
-                "error": "parsing_failed",
-                "message": "We couldn't read that file. Please paste your resume text instead."
+                "error": "file_too_large",
+                "message": "File is too large. Maximum size is 5MB."
+            }), 413
+
+        try:
+            final_resume_text = extract_resume_text(resume_file)
+        except ResumeExtractionError:
+            return jsonify({
+                "error": "extraction_failed",
+                "message": "Couldn't read text from that file. Try pasting your resume text instead."
             }), 422
 
-        except Exception as e:
-            return jsonify({
-                "error": "server_error",
-                "message": str(e)
-            }), 500
-
-        finally:
-            if tmp_path and os.path.exists(tmp_path):
-                os.remove(tmp_path)
-
-    if not resume_text:
+    if not final_resume_text or len(final_resume_text.strip()) < MIN_RESUME_TEXT_LENGTH:
         return jsonify({
-            "error": "parsing_failed",
-            "message": "We couldn't read that file. Please paste your resume text instead."
-        }), 422
+            "error": "missing_fields",
+            "message": "Resume text is empty or too short."
+        }), 400
 
-    # --- Day 5: hardcoded placeholder response (Day 2 API contract) ---
-    # Day 6: result = analyze_resume(resume_text, job_description)
-    result = PLACEHOLDER_ANALYSIS
+    _last_request_time["ts"] = now
+
+    try:
+        result = analyze_resume(final_resume_text, job_description)
+    except AIAnalysisError:
+        return jsonify({
+            "error": "ai_analysis_failed",
+            "message": "Something went wrong analyzing your resume. Please try again."
+        }), 502
 
     return jsonify(result), 200
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=True, host="0.0.0.0", port=port)

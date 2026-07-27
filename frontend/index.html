@@ -91,25 +91,23 @@
 
       </section>
 
-    <section class="analyze-bay">
-      <button type="button" class="analyze-btn" id="analyzeBtn" disabled>
-        <span class="analyze-btn-label">Analyze match</span>
-        <span class="analyze-btn-hint" id="analyzeHint">
-          Add your resume and a job description to continue
-        </span>
-      </button>
-
-<div id="loadingState" hidden>
-  <p>Analyzing resume...</p>
-</div>
-
-<p class="analyze-result" id="analyzeResult" hidden></p>
+      <section class="analyze-bay">
+        <button type="button" class="analyze-btn" id="analyzeBtn" disabled>
+          <span class="analyze-btn-label">Analyze match</span>
+          <span class="analyze-btn-hint" id="analyzeHint">Add your resume and a job description to continue</span>
+        </button>
+        <div class="loading-state" id="loadingState" hidden>
+          <span class="spinner" aria-hidden="true"></span>
+          <span>Analyzing your match&hellip;</span>
+        </div>
+        <p class="analyze-result" id="analyzeResult" hidden></p>
       </section>
 
     </main>
 
     <footer class="site-footer">
       <p>ResumeMatch AI &middot; built day by day</p>
+      <p class="challenge-credit">Built with Claude as part of the AB Talks 60-Day Claude AI Challenge.</p>
     </footer>
 
   </div>
