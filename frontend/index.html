@@ -98,9 +98,97 @@
         </button>
         <div class="loading-state" id="loadingState" hidden>
           <span class="spinner" aria-hidden="true"></span>
-          <span>Analyzing your match&hellip;</span>
+          <span id="loadingStateText">Analyzing your match&hellip;</span>
         </div>
         <p class="analyze-result" id="analyzeResult" hidden></p>
+      </section>
+
+      <section class="results-bay" id="resultsBay" hidden>
+
+        <div class="results-header">
+          <p class="eyebrow">Home / Results</p>
+          <h2>Your match report</h2>
+        </div>
+
+        <div class="results-grid">
+
+          <div class="score-card">
+            <div class="score-ring">
+              <svg viewBox="0 0 120 120" class="score-ring-svg" aria-hidden="true">
+                <circle class="score-ring-track" cx="60" cy="60" r="52"></circle>
+                <circle class="score-ring-fill" id="scoreRingFill" cx="60" cy="60" r="52"></circle>
+              </svg>
+              <div class="score-ring-label">
+                <span class="score-number" id="scoreNumber">0</span>
+                <span class="score-max">/100</span>
+              </div>
+            </div>
+            <p class="score-tier" id="scoreTier">Match score</p>
+          </div>
+
+          <div class="subscore-card">
+            <h3>Breakdown</h3>
+
+            <div class="subscore-row">
+              <span class="subscore-label">Skills</span>
+              <div class="subscore-track"><div class="subscore-fill" id="barSkills"></div></div>
+              <span class="subscore-value" id="valSkills">0</span>
+            </div>
+
+            <div class="subscore-row">
+              <span class="subscore-label">Keywords</span>
+              <div class="subscore-track"><div class="subscore-fill" id="barKeywords"></div></div>
+              <span class="subscore-value" id="valKeywords">0</span>
+            </div>
+
+            <div class="subscore-row">
+              <span class="subscore-label">Experience</span>
+              <div class="subscore-track"><div class="subscore-fill" id="barExperience"></div></div>
+              <span class="subscore-value" id="valExperience">0</span>
+            </div>
+
+            <div class="subscore-row">
+              <span class="subscore-label">Education</span>
+              <div class="subscore-track"><div class="subscore-fill" id="barEducation"></div></div>
+              <span class="subscore-value" id="valEducation">0</span>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="results-columns">
+          <div class="result-block">
+            <h3>Missing keywords</h3>
+            <div class="chip-list" id="missingKeywords"></div>
+            <p class="empty-note" id="missingKeywordsEmpty" hidden>No missing keywords found &mdash; nice work.</p>
+          </div>
+          <div class="result-block">
+            <h3>Missing skills</h3>
+            <div class="chip-list" id="missingSkills"></div>
+            <p class="empty-note" id="missingSkillsEmpty" hidden>No missing skills found &mdash; nice work.</p>
+          </div>
+        </div>
+
+        <div class="results-columns">
+          <div class="result-block">
+            <h3>Strengths</h3>
+            <ul class="result-list is-positive" id="strengthsList"></ul>
+          </div>
+          <div class="result-block">
+            <h3>Weaknesses</h3>
+            <ul class="result-list is-negative" id="weaknessesList"></ul>
+          </div>
+        </div>
+
+        <div class="result-block suggestions-block">
+          <h3>Suggestions to improve your match</h3>
+          <ul class="result-list is-suggestions" id="suggestionsList"></ul>
+        </div>
+
+        <div class="results-footer">
+          <button type="button" class="secondary-btn" id="analyzeAnotherBtn">Analyze another</button>
+        </div>
+
       </section>
 
     </main>

@@ -43,6 +43,15 @@ const analyzeBtn = document.getElementById("analyzeBtn");
 const analyzeHint = document.getElementById("analyzeHint");
 const analyzeResult = document.getElementById("analyzeResult");
 const loadingState = document.getElementById("loadingState");
+const loadingStateText = document.getElementById("loadingStateText");
+
+const resultsBay = document.getElementById("resultsBay");
+const scoreRingFill = document.getElementById("scoreRingFill");
+const scoreNumber = document.getElementById("scoreNumber");
+const scoreTier = document.getElementById("scoreTier");
+const analyzeAnotherBtn = document.getElementById("analyzeAnotherBtn");
+
+const SCORE_RING_CIRCUMFERENCE = 326.7;
 
 // ---- Backend health check (Day 3/Milestone 1) ----
 async function checkBackendHealth() {
@@ -275,11 +284,137 @@ function triggerParsingFailedFallback(message) {
   resumeTextInput.focus();
 }
 
+// ---- Results rendering ----
+function scoreTierLabel(score) {
+  if (score >= 80) return "Strong match";
+  if (score >= 60) return "Good match";
+  if (score >= 40) return "Partial match";
+  return "Needs work";
+}
+
+function scoreTierColor(score) {
+  if (score >= 80) return "var(--match-green)";
+  if (score >= 60) return "var(--accent)";
+  return "var(--error-red)";
+}
+
+function fillChipList(containerEl, emptyNoteEl, items) {
+  containerEl.innerHTML = "";
+  const hasItems = Array.isArray(items) && items.length > 0;
+
+  if (hasItems) {
+    items.forEach((item) => {
+      const chip = document.createElement("span");
+      chip.className = "chip";
+      chip.textContent = item;
+      containerEl.appendChild(chip);
+    });
+  }
+
+  if (emptyNoteEl) {
+    emptyNoteEl.hidden = hasItems;
+  }
+}
+
+function fillList(listEl, items, fallbackText) {
+  listEl.innerHTML = "";
+  const hasItems = Array.isArray(items) && items.length > 0;
+
+  if (!hasItems) {
+    const li = document.createElement("li");
+    li.textContent = fallbackText;
+    li.style.opacity = "0.6";
+    listEl.appendChild(li);
+    return;
+  }
+
+  items.forEach((item) => {
+    const li = document.createElement("li");
+    li.textContent = item;
+    listEl.appendChild(li);
+  });
+}
+
+function renderResults(data) {
+  const overall = Math.max(0, Math.min(100, Number(data.overall_score) || 0));
+
+  // Score ring
+  const offset = SCORE_RING_CIRCUMFERENCE - (overall / 100) * SCORE_RING_CIRCUMFERENCE;
+  scoreRingFill.style.stroke = scoreTierColor(overall);
+  // Reset then set on next frame so the transition animates from empty each time.
+  scoreRingFill.style.strokeDashoffset = SCORE_RING_CIRCUMFERENCE;
+  requestAnimationFrame(() => {
+    scoreRingFill.style.strokeDashoffset = offset;
+  });
+  scoreNumber.textContent = overall;
+  scoreTier.textContent = scoreTierLabel(overall);
+
+  // Sub-scores
+  const sub = data.sub_scores || {};
+  const subMap = [
+    ["skills", "barSkills", "valSkills"],
+    ["keywords", "barKeywords", "valKeywords"],
+    ["experience", "barExperience", "valExperience"],
+    ["education", "barEducation", "valEducation"],
+  ];
+  subMap.forEach(([key, barId, valId]) => {
+    const value = Math.max(0, Math.min(100, Number(sub[key]) || 0));
+    const bar = document.getElementById(barId);
+    const val = document.getElementById(valId);
+    bar.style.width = "0%";
+    requestAnimationFrame(() => {
+      bar.style.width = `${value}%`;
+    });
+    val.textContent = value;
+  });
+
+  // Chips
+  fillChipList(
+    document.getElementById("missingKeywords"),
+    document.getElementById("missingKeywordsEmpty"),
+    data.missing_keywords
+  );
+  fillChipList(
+    document.getElementById("missingSkills"),
+    document.getElementById("missingSkillsEmpty"),
+    data.missing_skills
+  );
+
+  // Lists
+  fillList(document.getElementById("strengthsList"), data.strengths, "No specific strengths identified.");
+  fillList(document.getElementById("weaknessesList"), data.weaknesses, "No specific weaknesses identified.");
+  fillList(document.getElementById("suggestionsList"), data.suggestions, "No suggestions available.");
+
+  resultsBay.hidden = false;
+  resultsBay.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function resetResults() {
+  resultsBay.hidden = true;
+  analyzeResult.hidden = true;
+  jdTextInput.value = "";
+  resumeTextInput.value = "";
+  clearSelectedFile();
+  updateJdValidity();
+  updateResumeValidity();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+analyzeAnotherBtn.addEventListener("click", resetResults);
+
 analyzeBtn.addEventListener("click", async () => {
   if (analyzeBtn.disabled) return;
 
   analyzeResult.hidden = true;
+  resultsBay.hidden = true;
+  loadingStateText.textContent = "Analyzing your match\u2026";
   setLoadingState(true);
+
+  // Render's free tier can take 30-50s to wake up after inactivity.
+  // Let the person know after a few seconds so it doesn't look stuck.
+  const slowHintTimer = setTimeout(() => {
+    loadingStateText.textContent = "Still working \u2014 the server is waking up, this can take up to a minute\u2026";
+  }, 6000);
 
   const formData = new FormData();
 
@@ -313,19 +448,15 @@ analyzeBtn.addEventListener("click", async () => {
       return;
     }
 
-    // Day 5: log the full JSON to the console — Day 7 renders this visually.
-    console.log("Analysis result:", data);
-    showAnalyzeResult(
-      `Analysis complete (overall score: ${data.overall_score}). Full results logged to the browser console — visual results UI comes in a future session.`,
-      false
-    );
+    renderResults(data);
   } catch (err) {
     console.error("Analyze request failed:", err);
     showAnalyzeResult(
-      "Couldn't reach the backend. Make sure it's running at localhost:5000 and try again.",
+      "Couldn't reach the backend right now. Please check your connection and try again.",
       true
     );
   } finally {
+    clearTimeout(slowHintTimer);
     setLoadingState(false);
   }
 });
