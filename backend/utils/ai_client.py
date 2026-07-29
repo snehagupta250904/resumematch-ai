@@ -1,10 +1,13 @@
 import os
 import json
 import re
+import logging
 import requests
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger("resumematch.ai_client")
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
@@ -20,7 +23,7 @@ Compare the RESUME below against the JOB DESCRIPTION below and produce a match a
 
 Respond with ONLY valid JSON, no markdown formatting, no code fences, no extra text before or after. The JSON must match this exact structure:
 
-{{s
+{{
   "overall_score": <integer 0-100>,
   "sub_scores": {{
     "skills": <integer 0-100>,
@@ -115,13 +118,16 @@ def analyze_resume(resume_text, job_description):
         data_raw = response.json()
         raw_text = data_raw["candidates"][0]["content"]["parts"][0]["text"]
     except requests.exceptions.RequestException as exc:
+        logger.error("Gemini request failed: %s", exc)
         raise AIAnalysisError(f"Gemini request failed: {exc}") from exc
     except (KeyError, IndexError) as exc:
+        logger.error("Unexpected Gemini response shape: %s | raw=%s", exc, data_raw)
         raise AIAnalysisError(f"Unexpected Gemini response shape: {exc}") from exc
 
     try:
         data = _extract_json(raw_text)
     except (json.JSONDecodeError, ValueError) as exc:
+        logger.error("Gemini returned invalid JSON: %s | raw_text=%s", exc, raw_text)
         raise AIAnalysisError(f"Gemini returned invalid JSON: {exc}") from exc
 
     return _validate_shape(data)
